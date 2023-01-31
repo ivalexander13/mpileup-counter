@@ -1,13 +1,21 @@
-#! /usr/bin/env python
-###############################################################################
-# parses pileup base string and returns the counts for all possible alleles 
-# for each position
-# reads input (mpileup output) from sys.stdin
-###############################################################################
+# Based on https://github.com/Niknafs/NGSTools/blob/master/baseParser.py.
 
 import os
 import sys
+import argparse
+import time
+from multiprocessing import Pool
+import tqdm
 
+
+# Args
+parser = argparse.ArgumentParser(description='Quantify alt alleles.')
+parser.add_argument('--mpileup', type=str, help='Mpileup File Input')
+parser.add_argument('--output', type=str, help='Counts File Output')
+args = parser.parse_args()
+
+
+# Parser Class
 class parseString(object):
     
     def __init__(self, ref, string):
@@ -45,7 +53,7 @@ class parseString(object):
                     self.types['-'].append(deletionSeq)
                     self.string = self.string[3+deletionLength:]
                     
-            elif self.types.has_key(self.string[0]) and\
+            elif self.string[0] in self.types and\
                  ((len(self.string)==1) or (self.string[1] not in ['-','+'])):
                 # one of the four bases
                 self.types[self.string[0]] += 1
@@ -58,19 +66,41 @@ class parseString(object):
         return
     def __repr__(self):
         types = self.types
-        return '\t'.join(map(str,[types['A'], types['C'], types['G'],types['T'],\
-                                  types['*']]) +\
-                         map(','.join, [types['-'],types['+'],types['X']]))
+        return '\t'.join(
+            list(map(str,[types['A'], types['C'], types['G'],types['T'],types['*']])) + \
+            list(map(','.join, [types['-'],types['+'],types['X']]))
+            )
         
+# Single function for multiprocessing
+def process_line(line):
+    toks = line.strip('\n').split('\t')
+    ref = toks[2].upper()
+    cov = toks[3]
+    out_str = '\t'.join([toks[0], toks[1],ref, cov]) + '\t' + \
+        parseString(ref, toks[4]).__repr__()
+
+    return out_str
 
 def main():
-    print >>sys.stdout, "chrom\tpos\tref\tcov\tA\tC\tG\tT\t*\t-\t+\tX"
-    for line in sys.stdin:
-        toks = line.strip('\n').split('\t')
-        ref = toks[2].upper()
-        cov = toks[3]
-        print >>sys.stdout, '\t'.join([toks[0], toks[1],ref, cov]) + '\t' + \
-            parseString(ref, toks[4]).__repr__()
+    with open(args.mpileup, 'r') as f:
+        with Pool() as pool:
+            out_rows = pool.map(
+                process_line, 
+                f.readlines()
+                )
+
+    with open(args.output, 'w+') as f:
+        f.write('\t'.join([
+            "chrom", "pos", "ref", "cov", "A", 
+            "C", "G", "T", "*", "-", "+", "X"
+            ]))
+
+        f.write('\n'.join(out_rows))
+        f.write('\n')
 
 if __name__ == '__main__':
+    start = time.time()
     main()
+    time_taken = time.time() - start
+
+    print(f"Mpileup Counter Done! Time: {time_taken:.2f}s")

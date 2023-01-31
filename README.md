@@ -1,9 +1,11 @@
-NGSTools
+Mpileup Counter
 ========
+A standalone script to compile the counts of alleles in each position, from an mpileup file.
+<br>
+<br>
 
-NGSTools
+
+_Forked from [Niknafs' baseParser](https://github.com/Niknafs/NGSTools). Ported to python3 and implemented multiprocessing._
 
 
-A collection of tools used in processing NGS data, mainly BAM/SAM files.
 
-[![Binder](http://mybinder.org/badge.svg)](http://mybinder.org:/repo/niknafs/ngstools)
